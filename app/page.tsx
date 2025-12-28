@@ -195,6 +195,33 @@ export default function Home() {
         </motion.div>
       </header>
 
+      <motion.div
+        className="relative z-10 container mx-auto px-4 mt-6 mb-6"
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.25 }}
+      >
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-blue-900/30 backdrop-blur-sm border border-blue-500/50 rounded-lg p-4 shadow-lg">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 mt-0.5">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-400">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="16" x2="12" y2="12"/>
+                  <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-blue-300 font-semibold text-sm mb-1">Note</h3>
+                <p className="text-slate-300 text-sm leading-relaxed">
+                  The <span className="text-blue-400 font-mono font-semibold">product_id</span> displayed in the success message is the Lambda AWS context request ID, which uniquely identifies each Lambda function invocation.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       <div className="relative z-10 container mx-auto px-4 py-8">
         <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
           <div className="w-full max-w-md mb-8">
