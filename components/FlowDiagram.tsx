@@ -16,10 +16,13 @@ interface FlowDiagramProps {
   isActive: boolean
   onComplete: () => void
   onStepChange?: (step: number, stepName: string, description: string) => void
+  manualControl?: boolean
+  currentStep?: number
 }
 
-export default function FlowDiagram({ isActive, onComplete, onStepChange }: FlowDiagramProps) {
-  const [currentStep, setCurrentStep] = useState<number>(0)
+export default function FlowDiagram({ isActive, onComplete, onStepChange, manualControl = false, currentStep: externalCurrentStep }: FlowDiagramProps) {
+  const [internalCurrentStep, setInternalCurrentStep] = useState<number>(0)
+  const currentStep = manualControl ? (externalCurrentStep ?? 0) : internalCurrentStep
 
   const nodePositions = {
     user: { x: 400, y: 100 },
@@ -51,8 +54,8 @@ export default function FlowDiagram({ isActive, onComplete, onStepChange }: Flow
   }
 
   const steps: FlowStep[] = [
-    { id: 'user', label: 'User', status: 'POST /api/products', active: false },
-    { id: 'apiGateway', label: 'API Gateway', status: 'Request received', active: false },
+    { id: 'user', label: 'User', status: undefined, active: false },
+    { id: 'apiGateway', label: 'API Gateway', status: undefined, active: false },
     { id: 'lambda1', label: 'Lambda Function', status: 'Lambda invoked', active: false },
     { id: 'sqs', label: 'SQS Queue', status: 'Message published to SQS', active: false },
     { id: 'lambda2', label: 'Lambda Function', status: 'Processing message', active: false },
@@ -84,7 +87,11 @@ export default function FlowDiagram({ isActive, onComplete, onStepChange }: Flow
 
   useEffect(() => {
     if (!isActive) {
-      setCurrentStep(0)
+      setInternalCurrentStep(0)
+      return
+    }
+    
+    if (manualControl) {
       return
     }
 
@@ -102,7 +109,7 @@ export default function FlowDiagram({ isActive, onComplete, onStepChange }: Flow
     
     stepConfig.forEach(({ delay, step, name, desc }) => {
       const timer = setTimeout(() => {
-        setCurrentStep(step)
+        setInternalCurrentStep(step)
         if (onStepChange && stepDescriptions[desc]) {
           onStepChange(step, name, stepDescriptions[desc])
         }
@@ -120,7 +127,7 @@ export default function FlowDiagram({ isActive, onComplete, onStepChange }: Flow
     return () => {
       timers.forEach(timer => clearTimeout(timer))
     }
-  }, [isActive])
+  }, [isActive, manualControl, onStepChange, onComplete])
 
   const getNodeStatus = (stepId: string) => {
     const stepIndex = steps.findIndex(s => s.id === stepId)
@@ -236,32 +243,6 @@ export default function FlowDiagram({ isActive, onComplete, onStepChange }: Flow
           <div className="text-center text-sm font-semibold text-white mb-1">
             User
           </div>
-
-          {getNodeStatus('user') && (
-            <motion.div
-              className="text-center text-xs text-blue-400 mt-1 font-medium"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
-            >
-              {getNodeStatus('user')}
-            </motion.div>
-          )}
-
-          {stepDescriptions['user'] && isNodeActive('user') && (
-            <motion.div
-              className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 w-64 bg-slate-900 border border-slate-600 rounded-lg p-3 shadow-xl z-10"
-              initial={{ opacity: 0, y: -10, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -10, scale: 0.9 }}
-              transition={{ delay: 0.3 }}
-            >
-              <div className="text-xs text-slate-300 leading-relaxed">
-                {stepDescriptions['user']}
-              </div>
-              <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-slate-900 border-l border-t border-slate-600 rotate-45"></div>
-            </motion.div>
-          )}
         </motion.div>
       </motion.div>
 

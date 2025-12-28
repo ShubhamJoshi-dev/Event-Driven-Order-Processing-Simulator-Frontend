@@ -6,26 +6,103 @@ import Image from 'next/image'
 import AddProductForm from '@/components/AddProductForm'
 import FlowDiagram from '@/components/FlowDiagram'
 
+interface ProductData {
+  product_id: string
+  product_name: string
+  product_price: number
+  product_description: string | number
+  created_at: string
+}
+
 export default function Home() {
   const [isFlowActive, setIsFlowActive] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
   const [showDiagram, setShowDiagram] = useState(false)
+  const [productData, setProductData] = useState<ProductData | null>(null)
   const [currentStepInfo, setCurrentStepInfo] = useState<{
     step: number
     name: string
     description: string
   } | null>(null)
 
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+  const extractProductId = (message: string): string | null => {
+    const match = message.match(/Product ID: ([a-f0-9-]+)/i)
+    return match ? match[1] : null
+  }
+
   const handleFormSubmit = async (data: { name: string; price: string; details: string }) => {
     setIsLoading(true)
     setIsFlowActive(true)
     setShowSuccess(false)
     setCurrentStepInfo(null)
+    setProductData(null)
     
-    setTimeout(() => {
+    try {
+      setCurrentStepInfo({ step: 0, name: 'User Request', description: 'User submits product data through the form. This triggers a POST request to the API endpoint.' })
+      await new Promise(resolve => setTimeout(resolve, 800))
+      
+      setCurrentStepInfo({ step: 1, name: 'API Gateway', description: 'API Gateway receives the HTTP request, validates it, and routes it to the appropriate backend service.' })
+      await new Promise(resolve => setTimeout(resolve, 1200))
+      
+      setCurrentStepInfo({ step: 2, name: 'Lambda Function (Processing)', description: 'Lambda function processes the request, validates the product data, and prepares it for asynchronous processing.' })
+      
+      const response = await fetch(`${API_BASE_URL}/product`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          product_name: data.name,
+          product_price: parseFloat(data.price),
+          product_description: data.details,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.statusText}`)
+      }
+
+      setCurrentStepInfo({ step: 3, name: 'SQS Queue', description: 'SQS Queue stores the message temporarily, ensuring reliable delivery and decoupling the processing steps.' })
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      const result = await response.text()
+      const productId = extractProductId(result)
+
+      setCurrentStepInfo({ step: 4, name: 'Lambda Function (Consumer)', description: 'Lambda function polls the SQS queue, retrieves the message, and processes the product data.' })
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      if (productId) {
+        setCurrentStepInfo({ step: 5, name: 'DynamoDB', description: 'DynamoDB stores the product information persistently in a NoSQL database table.' })
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        
+        const getResponse = await fetch(`${API_BASE_URL}/product?product_id=${productId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (getResponse.ok) {
+          const product = await getResponse.json()
+          setProductData(product)
+        }
+      }
+
+      setCurrentStepInfo({ step: 6, name: 'SNS Notification', description: 'SNS sends a notification to subscribers (email, SMS, etc.) confirming the product was successfully added.' })
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
       setIsLoading(false)
-    }, 10000)
+      setShowSuccess(true)
+      setIsFlowActive(false)
+    } catch (error) {
+      console.error('Error submitting product:', error)
+      setIsLoading(false)
+      setIsFlowActive(false)
+      alert('Failed to add product. Please try again.')
+    }
   }
 
   const handleFlowComplete = () => {
@@ -189,13 +266,46 @@ export default function Home() {
                     </motion.h3>
                     
                     <motion.p
-                      className="text-green-200 text-lg mb-6"
+                      className="text-green-200 text-lg mb-4"
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.4 }}
                     >
                       Product is successfully added at DynamoDB
                     </motion.p>
+                    
+                    {productData && (
+                      <motion.div
+                        className="bg-slate-900/50 rounded-lg p-4 mb-6 border border-slate-700 text-left"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.5 }}
+                      >
+                        <h4 className="text-white font-semibold mb-3 text-sm">Product Details:</h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Product ID:</span>
+                            <span className="text-green-300 font-mono text-xs break-all">{productData.product_id}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Name:</span>
+                            <span className="text-white">{productData.product_name}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Price:</span>
+                            <span className="text-white">${productData.product_price}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Description:</span>
+                            <span className="text-white text-right max-w-[60%] break-words">{productData.product_description}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Created At:</span>
+                            <span className="text-white text-xs">{new Date(productData.created_at).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
                     
                     <motion.button
                       onClick={handleReset}
@@ -248,6 +358,8 @@ export default function Home() {
                     isActive={isFlowActive} 
                     onComplete={handleFlowComplete}
                     onStepChange={handleStepChange}
+                    manualControl={true}
+                    currentStep={currentStepInfo?.step ?? 0}
                   />
                 </motion.div>
               </div>
